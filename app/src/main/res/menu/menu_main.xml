@@ -1,0 +1,21 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:context="com.god.backgroundmanager.MainActivity">
+    <item
+        android:id="@+id/show_all_app"
+        android:orderInCategory="100"
+        android:title="Show all app" />
+    <item
+        android:id="@+id/show_system_app"
+        android:orderInCategory="100"
+        android:title="Show all app" />
+    <item
+        android:id="@+id/show_user_app"
+        android:orderInCategory="100"
+        android:title="Show all app" />
+    <item
+        android:id="@+id/show_freeze"
+        android:orderInCategory="100"
+        android:title="Show all app" />
+</menu>

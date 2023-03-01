@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/force_stop"
+        android:title="Force stop"
+        android:tooltipText="Force stop this app"
+        />
+    <item
+        android:id="@+id/freeze"
+        android:title="Freeze app"
+        android:tooltipText="Make app not running in background"
+        />
+    <item
+        android:id="@+id/turn_off_notification"
+        android:title="Turn off notification"
+        android:tooltipText="Turn off notification"
+        />
+    <item
+        android:id="@+id/uninstall"
+        android:title="Uninstall"
+        android:tooltipText="Uninstall this app"
+        />
+    <item
+        android:id="@+id/open_in_setting"
+        android:title="More info"
+        android:tooltipText="Open app in setting"
+        />
+</menu>
