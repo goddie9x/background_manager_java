@@ -17,12 +17,24 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="?attr/colorPrimary"
-            app:popupTheme="@style/Theme.BackgroundManager.PopupOverlay" />
+            app:popupTheme="@style/Theme.BackgroundManager.PopupOverlay">
+            <androidx.appcompat.widget.SearchView
+                android:id="@+id/search_app"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:iconifiedByDefault="false"
+                android:queryHint="Search"
+                app:actionViewClass="androidx.appcompat.widget.SearchView"/>
+        </androidx.appcompat.widget.Toolbar>
 
     </com.google.android.material.appbar.AppBarLayout>
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/list_app"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:scrollbars="vertical"
+        android:scrollbarSize="10dp"
+        android:scrollbarThumbVertical="@drawable/custom_scrollbar_thumb"
+        android:scrollbarDefaultDelayBeforeFade="10"
         />
 </LinearLayout>
