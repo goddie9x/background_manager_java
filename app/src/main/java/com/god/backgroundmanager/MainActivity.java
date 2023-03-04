@@ -1,21 +1,30 @@
 package com.god.backgroundmanager;
 
+import android.Manifest;
 import android.app.ProgressDialog;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.CheckBox;
+import android.widget.LinearLayout;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SearchView;
-import androidx.navigation.ui.AppBarConfiguration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.god.backgroundmanager.Adapeter.ListAppAdapter;
+import com.god.backgroundmanager.Entity.AppInfo;
+import com.god.backgroundmanager.Facade.AppManagerFacade;
+import com.god.backgroundmanager.Util.AsyncTaskBuilder;
+import com.god.backgroundmanager.Util.DialogUtils;
 import com.god.backgroundmanager.databinding.ActivityMainBinding;
 
 import java.util.ArrayList;
@@ -23,11 +32,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class MainActivity extends AppCompatActivity {
-
-    private AppBarConfiguration appBarConfiguration;
-    private ActivityMainBinding binding;
     private AppManagerFacade appManagerFacade;
-    private RecyclerView listAppRecycleView;
     private ListAppAdapter crrListListAppAdapter;
     private List<AppInfo> listApp;
     private AsyncTaskBuilder<Void,Void,Void> taskGetAllInstalledApp;
@@ -37,8 +42,9 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getPermissions();
-        appManagerFacade = AppManagerFacade.GetIntance(this);
-        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        appManagerFacade = AppManagerFacade.GetInstance(this);
+        appManagerFacade.getRootPermission();
+        com.god.backgroundmanager.databinding.ActivityMainBinding binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
         setSupportActionBar(binding.toolbar);
         initListAppRecycleView();
@@ -57,9 +63,7 @@ public class MainActivity extends AppCompatActivity {
                 DialogUtils.showAlertDialog(this,
                         "Permission require warning",
                         "You should provide permission to get full power",
-                            (dialog,which)->{
-                                getQueryAllPackagePermission();
-                            },
+                            (dialog,which)-> getQueryAllPackagePermission(),
                             (dialog,which)->{}
                         );
             }
@@ -78,11 +82,11 @@ public class MainActivity extends AppCompatActivity {
                             (dialog,which)->{
                                 Toast.makeText(this,
                                         "Force stopping "+selectedAppInfo.packageName,
-                                        Toast.LENGTH_SHORT);
+                                        Toast.LENGTH_SHORT).show();
                                 appManagerFacade.forceStopApp(selectedAppInfo.packageName);
-                            }
+                            },
+                            (dialog,which)->{}
                     );
-
                     return true;
                 case R.id.freeze:
                     return true;
@@ -115,33 +119,65 @@ public class MainActivity extends AppCompatActivity {
         getQueryAllPackagePermission();
     }
     private void getQueryAllPackagePermission(){
-        if (checkSelfPermission(android.Manifest.permission.QUERY_ALL_PACKAGES)
+        if (checkSelfPermission(Manifest.permission.QUERY_ALL_PACKAGES)
                 != PackageManager.PERMISSION_GRANTED) {
-
-            requestPermissions(new String[]{android.Manifest.permission.QUERY_ALL_PACKAGES},
-                    PERMISSION_QUERY_ALL_PACKAGES_CODE);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                requestPermissions(new String[]{Manifest.permission.QUERY_ALL_PACKAGES},
+                        PERMISSION_QUERY_ALL_PACKAGES_CODE);
+            }
         }
     }
     private void initTasks(){
         initTaskGetAllInstalledApp();
-        InitTaskForSearchApp();
+        initTaskForSearchApp();
     }
     private void initListAppRecycleView(){
-        listAppRecycleView = findViewById(R.id.list_app);
+        RecyclerView listAppRecycleView = findViewById(R.id.list_app);
         LinearLayoutManager layoutManager = new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false);
 
         listAppRecycleView.setLayoutManager(layoutManager);
         listAppRecycleView.setHasFixedSize(true);
         listAppRecycleView.setScrollbarFadingEnabled(false);
         listApp = new ArrayList<>();
-        crrListListAppAdapter = new ListAppAdapter(this, listApp);
+        crrListListAppAdapter = new ListAppAdapter(listApp);
+        crrListListAppAdapter.setOnTouchEvent((listServiceLayout,appInfo)-> execTaskHandleGetListService(listServiceLayout,appInfo.packageName));
         listAppRecycleView.setAdapter(crrListListAppAdapter);
         registerForContextMenu(listAppRecycleView);
     }
-    private void InitTaskForSearchApp(){
+    private void execTaskHandleGetListService(
+            LinearLayout listServiceLayout,
+            String crrPackageName
+    ){
+        if(listServiceLayout!=null){
+            AsyncTaskBuilder<String, Void, Void> taskHandleGetListService = new AsyncTaskBuilder<>();
+            taskHandleGetListService.setDoInBackgroundFunc(packageName->{
+                ActivityInfo[] listService = appManagerFacade
+                        .getServices((String) packageName[0]);
+                if(listService!=null){
+                    Handler handler = new Handler(Looper.getMainLooper());
+                    handler.post(()-> {
+                        listServiceLayout.removeAllViews();
+
+                        for (ActivityInfo crrService: listService) {
+                            CheckBox crrServiceCheckBox= new CheckBox(this);
+                            crrServiceCheckBox.setText(crrService.processName);
+                            crrServiceCheckBox.setChecked(crrService.enabled);
+                            crrServiceCheckBox.setOnCheckedChangeListener((v,isChecked)->{
+
+                            });
+                            listServiceLayout.addView(crrServiceCheckBox);
+                        }
+                    });
+                }
+                return null;
+            });
+            taskHandleGetListService.execute(crrPackageName);
+        }
+    }
+    private void initTaskForSearchApp(){
         taskSearchApp = new AsyncTaskBuilder<>();
-        taskSearchApp.setDoInBackgroundFunc(querys->{
-            String queryText = (String)querys[0];
+        taskSearchApp.setDoInBackgroundFunc(queries->{
+            String queryText = (String)queries[0];
 
             Handler handler = new Handler(Looper.getMainLooper());
             handler.post(()-> {
@@ -163,9 +199,7 @@ public class MainActivity extends AppCompatActivity {
         taskGetAllInstalledApp.setDoInBackgroundFunc(ts->{
             listApp  = appManagerFacade.GetAllInstalledApp();
             Handler handler = new Handler(Looper.getMainLooper());
-            handler.post(()-> {
-                crrListListAppAdapter.setListApp(listApp);
-            });
+            handler.post(()-> crrListListAppAdapter.setListApp(listApp));
             return null;
         });
         taskGetAllInstalledApp.setOnPreExecuteFunc(()->{
@@ -180,7 +214,7 @@ public class MainActivity extends AppCompatActivity {
                 result->{
                     Handler handler = new Handler(Looper.getMainLooper());
                     handler.post(()->{
-                        if (progressDialog != null && progressDialog.isShowing()) {
+                        if (progressDialog.isShowing()) {
                             progressDialog.dismiss();
                         }
                     });
@@ -197,10 +231,11 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public boolean onQueryTextChange(String newText) {
-                InitTaskForSearchApp();
+                initTaskForSearchApp();
                 taskSearchApp.execute(newText);
                 return false;
             }
         });
     }
+
 }
