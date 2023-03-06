@@ -1,6 +1,7 @@
 package com.god.backgroundmanager.Facade;
 
 import android.app.ActivityManager;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
@@ -15,6 +16,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.god.backgroundmanager.Entity.AppInfo;
+import com.god.backgroundmanager.Util.DialogUtils;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -86,10 +88,21 @@ public class AppManagerFacade {
                 "Uninstall "+packageName+" success",
                 "Uninstall "+packageName+" failed");
     }
-    public void uninstallApp(String packageName){
-        Intent intent = new Intent(Intent.ACTION_DELETE);
-        intent.setData(Uri.parse("package:" + packageName));
-        activity.startActivity(intent);
+    public void uninstallApp(AppInfo appInfo){
+        if(appInfo.isSystemApp){
+            if(hasRootPermission) {
+                uninstallAppWithRoot(appInfo.packageName);
+            }
+            else{
+                Toast.makeText(activity,
+                        "You cannot uninstall system app without root",Toast.LENGTH_LONG);
+            }
+        }
+        else{
+            Intent intent = new Intent(Intent.ACTION_DELETE);
+            intent.setData(Uri.parse("package:" + appInfo.packageName));
+            activity.startActivity(intent);
+        }
     }
     public void forceStopAppWithRootPermission(String packageName){
         executeCommandWithSuShell("am force-stop "+packageName,
@@ -107,7 +120,11 @@ public class AppManagerFacade {
                 activityManager.killBackgroundProcesses(packageName);
             }
             else{
-                openAppSetting(packageName);
+                DialogUtils.showAlertDialog(activity,"Manual",
+                        "Your android version not support or you do not have root permission" +
+                                "\n must force stop app as manual",(d,w)->{
+                            openAppSetting(packageName);
+                        });
             }
         }
     }

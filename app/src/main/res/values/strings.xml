@@ -1,12 +1,54 @@
 <resources>
-    <string name="app_name">BackgroundManager</string>
+    <string name="app_name">Background Manager</string>
     <string name="action_settings">Settings</string>
     <!-- Strings used for fragments for navigation -->
     <string name="first_fragment_label">First Fragment</string>
     <string name="second_fragment_label">Second Fragment</string>
     <string name="next">Next</string>
     <string name="previous">Previous</string>
+    <!-- Preference Titles -->
+    <string name="messages_header">Messages</string>
+    <string name="sync_header">Sync</string>
 
-    <string name="hello_first_fragment">Hello first fragment</string>
-    <string name="hello_second_fragment">Hello second fragment. Arg: %1$s</string>
+    <!-- Messages Preferences -->
+    <string name="signature_title">Your signature</string>
+    <string name="reply_title">Default reply action</string>
+
+    <!-- Sync Preferences -->
+    <string name="sync_title">Sync email periodically</string>
+    <string name="attachment_title">Download incoming attachments</string>
+    <string name="attachment_summary_on">Automatically download attachments for incoming emails
+    </string>
+    <string name="attachment_summary_off">Only download attachments when manually requested</string>
+    <string name="menu_filter_by">Menu filter by</string>
+    <string name="all">All</string>
+    <string name="system">System</string>
+    <string name="user">User</string>
+    <string name="a_z"><![CDATA[A->Z]]></string>
+    <string name="z_a"><![CDATA[Z->A]]></string>
+    <string name="menu_sort_by">Menu sort by</string>
+    <string name="menu_order_by">Menu order by</string>
+    <string name="order_by_app_name">Order by app name</string>
+    <string name="order_by_package_name">Order by package name</string>
+    <string name="app_icon_default">App icon</string>
+
+    <item name="group_filter_app" type="id" />
+    <item name="group_sort_app" type="id" />
+    <item name="group_order_app" type="id" />
+    <string name="title_activity_left_control">LeftControlActivity</string>
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+    <string name="nav_header_title">Android Studio</string>
+    <string name="nav_header_subtitle">android.studio@android.com</string>
+    <string name="nav_header_desc">Navigation header</string>
+
+    <string name="menu_home">Home</string>
+    <string name="menu_gallery">Gallery</string>
+    <string name="menu_slideshow">Slideshow</string>
+    <string name="search">Search</string>
+    <string name="multiple_select">Multiple select</string>
+    <string name="hide_search_bar">Hide search bar</string>
+    <string name="app_name_default">App name</string>
+    <string name="package_default">app.god.example</string>
+    <string name="default_zero">0</string>
 </resources>
