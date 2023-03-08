@@ -175,4 +175,7 @@ public class ListAppAdapter extends RecyclerView.Adapter<ListAppAdapter.AppItemH
         selectedAppIndex.clear();
         notifyDataSetChanged();
     }
+    public boolean getSelectionState(){
+        return isEnableSelect;
+    }
 }

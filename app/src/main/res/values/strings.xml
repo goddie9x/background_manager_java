@@ -9,7 +9,8 @@
     <!-- Preference Titles -->
     <string name="messages_header">Messages</string>
     <string name="sync_header">Sync</string>
-
+    <string name="navigation_draw_open">Open navigation drawer</string>
+    <string name="navigation_draw_Close">Close navigation drawer</string>
     <!-- Messages Preferences -->
     <string name="signature_title">Your signature</string>
     <string name="reply_title">Default reply action</string>
@@ -51,4 +52,7 @@
     <string name="app_name_default">App name</string>
     <string name="package_default">app.god.example</string>
     <string name="default_zero">0</string>
+    <string name="created_by_goddie9x">Created by goddie9x</string>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
 </resources>

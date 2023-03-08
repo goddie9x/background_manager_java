@@ -1,7 +1,6 @@
 package com.god.backgroundmanager.Facade;
 
 import android.app.ActivityManager;
-import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
@@ -88,20 +87,23 @@ public class AppManagerFacade {
                 "Uninstall "+packageName+" success",
                 "Uninstall "+packageName+" failed");
     }
-    public void uninstallApp(AppInfo appInfo){
+    public boolean uninstallApp(AppInfo appInfo){
         if(appInfo.isSystemApp){
             if(hasRootPermission) {
                 uninstallAppWithRoot(appInfo.packageName);
+                return true;
             }
             else{
                 Toast.makeText(activity,
-                        "You cannot uninstall system app without root",Toast.LENGTH_LONG);
+                        "You cannot uninstall system app without root",Toast.LENGTH_LONG).show();
+                return false;
             }
         }
         else{
             Intent intent = new Intent(Intent.ACTION_DELETE);
             intent.setData(Uri.parse("package:" + appInfo.packageName));
             activity.startActivity(intent);
+            return true;
         }
     }
     public void forceStopAppWithRootPermission(String packageName){

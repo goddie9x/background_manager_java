@@ -16,16 +16,21 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.CheckBox;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SearchView;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.god.backgroundmanager.Adapeter.ListAppAdapter;
 import com.god.backgroundmanager.Entity.AppInfo;
+import com.god.backgroundmanager.Enum.BackStackState;
 import com.god.backgroundmanager.Enum.GroupAppType;
 import com.god.backgroundmanager.Enum.OrderAppType;
 import com.god.backgroundmanager.Enum.SortAppType;
@@ -33,9 +38,11 @@ import com.god.backgroundmanager.Facade.AppManagerFacade;
 import com.god.backgroundmanager.Util.AsyncTaskBuilder;
 import com.god.backgroundmanager.Util.DialogUtils;
 import com.god.backgroundmanager.databinding.ActivityMainBinding;
+import com.google.android.material.navigation.NavigationView;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Stack;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -50,8 +57,13 @@ public class MainActivity extends AppCompatActivity {
     private MenuItem prevSelectGroupTypeItem;
     private MenuItem prevSelectOrderTypeItem;
     private MenuItem prevSelectSortTypeItem;
+    private TextView appTitleLabel;
+    private LinearLayout searchBar;
+    private LinearLayout selectOptionBar;
     private Menu optionsMenu;
     private boolean isOpenSearchBar = false;
+    private DrawerLayout mainDrawer;
+    private Stack<BackStackState> backStack = new Stack<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,12 +71,33 @@ public class MainActivity extends AppCompatActivity {
         getPermissions();
         appManagerFacade = AppManagerFacade.GetInstance(this);
         appManagerFacade.getRootPermission();
-        com.god.backgroundmanager.databinding.ActivityMainBinding binding = ActivityMainBinding.inflate(getLayoutInflater());
+        ActivityMainBinding binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
-        setSupportActionBar(binding.toolbar);
+        initLayout(binding);
+        initProperty();
         initListAppRecycleView();
         initSearchEvent();
         execTaskGetAllInstalledApp();
+    }
+
+    private void initLayout(ActivityMainBinding binding) {
+        setSupportActionBar(binding.toolbar);
+        mainDrawer = binding.drawerLayout;
+        NavigationView navView = findViewById(R.id.nav_view);
+        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(this, mainDrawer,
+                binding.toolbar, R.string.navigation_draw_open, R.string.navigation_drawer_close);
+        binding.drawerLayout.addDrawerListener(toggle);
+        toggle.syncState();
+        navView.setNavigationItemSelectedListener(item->{
+            int id = item.getItemId();
+            switch (id){
+                case R.id.refesh_list_app:{
+                    execTaskGetAllInstalledApp();
+                }
+            }
+            mainDrawer.closeDrawer(GravityCompat.START);
+            return true;
+        });
     }
 
     @Override
@@ -128,100 +161,166 @@ public class MainActivity extends AppCompatActivity {
         optionsMenu = menu;
         return true;
     }
+
     @Override
     public void onBackPressed() {
-
+        handleBackStack();
     }
+
+    private void handleBackStack() {
+        if (mainDrawer.isDrawerOpen(GravityCompat.START)) {
+            mainDrawer.closeDrawer(GravityCompat.START);
+        } else {
+            if (backStack.empty()) {
+                super.onBackPressed();
+            } else {
+                BackStackState prevBackStack = backStack.pop();
+                switch (prevBackStack) {
+                    case SEARCH:
+                        setOpenSearchBar(true);
+                        break;
+                    case SELECT:
+                        crrListListAppAdapter.toggleEnableSelect();
+                        break;
+                }
+            }
+        }
+    }
+
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
         boolean isHaveToUpdateListApp = false;
 
-        isHaveToUpdateListApp = isHaveToUpdateListApp||handleMenuFilter(item,id);
-        isHaveToUpdateListApp = isHaveToUpdateListApp||handleMenuOrder(item,id);
-        isHaveToUpdateListApp = isHaveToUpdateListApp||handleMenuSort(item,id);
-        switch (id) {
-            case R.id.open_search_bar:
-                setOpenSearchBar(true);
-                break;
-            case R.id.select_multiple:
-                crrListListAppAdapter.toggleEnableSelect();
-                break;
+        isHaveToUpdateListApp = isHaveToUpdateListApp || handleMenuFilter(item, id);
+        isHaveToUpdateListApp = isHaveToUpdateListApp || handleMenuOrder(item, id);
+        isHaveToUpdateListApp = isHaveToUpdateListApp || handleMenuSort(item, id);
+        if (isHaveToUpdateListApp) {
+            item.setChecked(true);
+        } else {
+            handleMenuOther(item, id);
         }
-        item.setChecked(true);
-        if(isHaveToUpdateListApp){
-            handleTaskSetListAppToRecycleView();
-        }
+        handleTaskSetListAppToRecycleView();
         return super.onOptionsItemSelected(item);
     }
-    private void handleCheckEdMenuFilter(MenuItem item,GroupAppType selectedGroupApp){
+
+    private void initProperty() {
+        appTitleLabel = findViewById(R.id.app_name_title);
+        searchBar = findViewById(R.id.search_bar);
+        selectOptionBar = findViewById(R.id.select_options_bar);
+    }
+
+    private void handleMenuOther(MenuItem item, int id) {
+        BackStackState backStackState = null;
+        if (!backStack.isEmpty()) {
+            backStackState = backStack.peek();
+        }
+        switch (id) {
+            case R.id.open_search_bar:
+                handleOpenSearchBar();
+                break;
+            case R.id.select_multiple:
+                handleSelectOptionClick();
+                break;
+        }
+    }
+
+    private void handleSelectOptionClick() {
+        crrListListAppAdapter.toggleEnableSelect();
+        if (crrListListAppAdapter.getSelectionState()) {
+            selectOptionBar.setVisibility(View.VISIBLE);
+            appTitleLabel.setVisibility(View.GONE);
+            if (isOpenSearchBar) {
+                backStack.push(BackStackState.SELECT);
+            }
+        } else {
+            if (isOpenSearchBar) {
+                handleBackStack();
+            } else {
+                appTitleLabel.setVisibility(View.VISIBLE);
+            }
+        }
+    }
+
+    private void handleOpenSearchBar() {
+        setOpenSearchBar(true);
+        appTitleLabel.setVisibility(View.GONE);
+        selectOptionBar.setVisibility(View.GONE);
+    }
+
+    private void handleCheckEdMenuFilter(MenuItem item, GroupAppType selectedGroupApp) {
         if (prevSelectGroupTypeItem != null && item != prevSelectGroupTypeItem) {
             prevSelectGroupTypeItem.setChecked(false);
         }
         prevSelectGroupTypeItem = item;
         selectedGroupAppType = selectedGroupApp;
     }
-    private void handleCheckEdMenuOrder(MenuItem item,OrderAppType selectedOrderApp){
+
+    private void handleCheckEdMenuOrder(MenuItem item, OrderAppType selectedOrderApp) {
         if (prevSelectOrderTypeItem != null && item != prevSelectOrderTypeItem) {
             prevSelectOrderTypeItem.setChecked(false);
         }
-        prevSelectGroupTypeItem = item;
+        prevSelectOrderTypeItem = item;
         selectedOrderAppType = selectedOrderApp;
     }
-    private void handleCheckEdMenuSort(MenuItem item,SortAppType selectedSortApp){
+
+    private void handleCheckEdMenuSort(MenuItem item, SortAppType selectedSortApp) {
         if (prevSelectSortTypeItem != null && item != prevSelectSortTypeItem) {
             prevSelectSortTypeItem.setChecked(false);
         }
         prevSelectSortTypeItem = item;
         selectedSortAppType = selectedSortApp;
     }
-    private boolean handleMenuFilter(MenuItem item,int id){
+
+    private boolean handleMenuFilter(MenuItem item, int id) {
         boolean isHaveToUpdateListApp = false;
-        switch (id){
+        switch (id) {
             case R.id.not_filter_app:
-                handleCheckEdMenuFilter(item,GroupAppType.ALL);
+                handleCheckEdMenuFilter(item, GroupAppType.ALL);
                 isHaveToUpdateListApp = true;
                 break;
             case R.id.filter_system_app:
-                handleCheckEdMenuFilter(item,GroupAppType.SYSTEM_APP);
+                handleCheckEdMenuFilter(item, GroupAppType.SYSTEM_APP);
                 isHaveToUpdateListApp = true;
                 break;
             case R.id.filter_user_app:
-                handleCheckEdMenuFilter(item,GroupAppType.USER_APP);
+                handleCheckEdMenuFilter(item, GroupAppType.USER_APP);
                 isHaveToUpdateListApp = true;
                 break;
         }
         return isHaveToUpdateListApp;
     }
 
-    private boolean handleMenuSort(MenuItem item, int id){
+    private boolean handleMenuSort(MenuItem item, int id) {
         boolean isHaveToUpdateListApp = false;
-        switch (id){
+        switch (id) {
             case R.id.sort_a_to_z:
-                handleCheckEdMenuSort(item,SortAppType.A_TO_Z);
+                handleCheckEdMenuSort(item, SortAppType.A_TO_Z);
                 isHaveToUpdateListApp = true;
                 break;
             case R.id.sort_z_to_a:
-                handleCheckEdMenuSort(item,SortAppType.Z_To_A);
+                handleCheckEdMenuSort(item, SortAppType.Z_To_A);
                 isHaveToUpdateListApp = true;
                 break;
         }
         return isHaveToUpdateListApp;
     }
-    private boolean handleMenuOrder(MenuItem item,int id){
+
+    private boolean handleMenuOrder(MenuItem item, int id) {
         boolean isHaveToUpdateListApp = false;
-        switch (id){
+        switch (id) {
             case R.id.order_by_app_name:
-                handleCheckEdMenuOrder(item,OrderAppType.NAME);
+                handleCheckEdMenuOrder(item, OrderAppType.NAME);
                 isHaveToUpdateListApp = true;
                 break;
             case R.id.order_by_package_name:
-                handleCheckEdMenuOrder(item,OrderAppType.PACKAGE_NAME);
+                handleCheckEdMenuOrder(item, OrderAppType.PACKAGE_NAME);
                 isHaveToUpdateListApp = true;
                 break;
         }
         return isHaveToUpdateListApp;
     }
+
     private void getPermissions() {
         getQueryAllPackagePermission();
         getManagerNotificationPermission();
@@ -313,7 +412,8 @@ public class MainActivity extends AppCompatActivity {
                 List<AppInfo> newListApp = new ArrayList<>();
                 if (!queryText.isEmpty()) {
                     newListApp = listApp.stream().filter(appInfo -> appInfo
-                                    .packageName.contains(queryText) || appInfo.appName.contains(queryText))
+                                    .packageName.contains(queryText) || appInfo.appName.toLowerCase()
+                                    .contains(queryText))
                             .collect(Collectors.toList());
                 } else {
                     newListApp = listApp;
@@ -326,13 +426,30 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void execTaskUninstallApp(AppInfo appInfo) {
-        AsyncTaskBuilder<Void, Void, Void> taskUninstallApp = new AsyncTaskBuilder<>();
+        AsyncTaskBuilder<Void, Void, Boolean> taskUninstallApp = new AsyncTaskBuilder<>();
         ProgressDialog progressDialog = new ProgressDialog(this);
-
-        taskUninstallApp.setDoInBackgroundFunc(ts -> {
-            appManagerFacade.uninstallApp(appInfo);
-            return null;
+        taskUninstallApp.setOnPreExecuteFunc(() -> {
+            Handler handler = new Handler(Looper.getMainLooper());
+            handler.post(() -> {
+                progressDialog.setMessage("Uninstalling...");
+                progressDialog.setCancelable(false);
+                progressDialog.show();
+            });
         });
+        taskUninstallApp.setDoInBackgroundFunc(ts -> appManagerFacade.uninstallApp(appInfo));
+        taskUninstallApp.setOnPostExecuteFunc(
+                result -> {
+                    Handler handler = new Handler(Looper.getMainLooper());
+                    handler.post(() -> {
+                        if (progressDialog.isShowing()) {
+                            progressDialog.dismiss();
+                        }
+                        Toast.makeText(this,
+                                (boolean) result ? "Uninstall success" : "Uninstall failed",
+                                Toast.LENGTH_SHORT).show();
+                    });
+                }
+        );
 
         taskUninstallApp.execute();
     }
@@ -421,8 +538,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initSearchEvent() {
-        ((ImageButton)findViewById(R.id.close_search_bar_btn)).setOnClickListener((v)->{
+        ((ImageButton) findViewById(R.id.close_search_bar_btn)).setOnClickListener((v) -> {
             setOpenSearchBar(false);
+            appTitleLabel.setVisibility(View.VISIBLE);
         });
         SearchView searchApp = findViewById(R.id.search_app);
         searchApp.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
@@ -444,21 +562,20 @@ public class MainActivity extends AppCompatActivity {
         if (optionsMenu != null) {
             for (int i = 0; i < optionsMenu.size(); i++) {
                 MenuItem crrGroup = optionsMenu.getItem(i);
-                if(crrGroup.getItemId()!=R.id.menu_other_options){
+                if (crrGroup.getItemId() != R.id.menu_other_options) {
                     crrGroup.setVisible(!isOpenSearchBar);
                 }
             }
         }
-        findViewById(R.id.app_name_title).setVisibility(isOpenSearchBar? View.GONE:View.VISIBLE);
-        findViewById(R.id.search_bar).setVisibility(isOpenSearchBar? View.VISIBLE:View.GONE);
-        if(isOpenSearchBar){
+        findViewById(R.id.search_bar).setVisibility(isOpenSearchBar ? View.VISIBLE : View.GONE);
+        if (isOpenSearchBar) {
             SearchView searchView = findViewById(R.id.search_app);
             searchView.requestFocus();
             searchView.setIconified(false);
-            searchView.postDelayed(()->{
+            searchView.postDelayed(() -> {
                 InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
                 imm.showSoftInput(searchView, InputMethodManager.SHOW_IMPLICIT);
-            },200);
+            }, 200);
         }
     }
 }
