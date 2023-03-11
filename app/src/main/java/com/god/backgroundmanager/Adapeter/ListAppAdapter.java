@@ -1,5 +1,6 @@
 package com.god.backgroundmanager.Adapeter;
 
+import android.annotation.SuppressLint;
 import android.graphics.Color;
 import android.text.TextUtils;
 import android.view.ContextMenu;
@@ -55,6 +56,7 @@ public class ListAppAdapter extends RecyclerView.Adapter<ListAppAdapter.AppItemH
         listHolder.add(holder);
         return holder ;
     }
+    @SuppressLint("ResourceAsColor")
     @Override
     public void onBindViewHolder(@NonNull ListAppAdapter.AppItemHolder holder, int position) {
         AppInfo crrAppInfo = listApp.get(position);
@@ -62,8 +64,12 @@ public class ListAppAdapter extends RecyclerView.Adapter<ListAppAdapter.AppItemH
         holder.appPackageLabel.setText(crrAppInfo.packageName);
         holder.appIcon.setImageDrawable(crrAppInfo.appIcon);
         if(!crrAppInfo.isSystemApp){
-            holder.systemLabel.setText("User");
+            holder.systemLabel.setText(R.string.user);
             holder.systemLabel.setTextColor(Color.GREEN);
+        }
+        if(crrAppInfo.isRunning){
+            holder.runningLabel.setText(R.string.running);
+            holder.runningLabel.setTextColor(Color.GREEN);
         }
         holder.itemView.setOnCreateContextMenuListener(this);
         holder.itemView.setOnClickListener(v -> {
@@ -106,6 +112,7 @@ public class ListAppAdapter extends RecyclerView.Adapter<ListAppAdapter.AppItemH
         private final LinearLayout listServiceLayout;
         private final LinearLayout currentItem;
         private final ImageView iconSelected;
+        private final TextView runningLabel;
         private boolean isShowSevices = false;
         private boolean isSelected = false;
         private void setShowSevices(boolean isShowSevices){
@@ -126,6 +133,7 @@ public class ListAppAdapter extends RecyclerView.Adapter<ListAppAdapter.AppItemH
             appPackageLabel.setEllipsize(TextUtils.TruncateAt.MARQUEE);
             appPackageLabel.setMarqueeRepeatLimit(-1);
             listServiceLayout = itemView.findViewById(R.id.list_service);
+            runningLabel = itemView.findViewById(R.id.running_label);
             currentItem = (LinearLayout) itemView;
         }
 

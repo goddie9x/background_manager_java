@@ -55,4 +55,6 @@
     <string name="created_by_goddie9x">Created by goddie9x</string>
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="stopped">Stopped</string>
+    <string name="running">Running</string>
 </resources>

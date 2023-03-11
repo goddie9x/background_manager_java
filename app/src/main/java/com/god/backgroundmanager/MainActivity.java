@@ -1,20 +1,11 @@
 package com.god.backgroundmanager;
 
-import android.Manifest;
-import android.app.ProgressDialog;
 import android.content.Context;
-import android.content.pm.ActivityInfo;
-import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.CheckBox;
-import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -35,7 +26,8 @@ import com.god.backgroundmanager.Enum.GroupAppType;
 import com.god.backgroundmanager.Enum.OrderAppType;
 import com.god.backgroundmanager.Enum.SortAppType;
 import com.god.backgroundmanager.Facade.AppManagerFacade;
-import com.god.backgroundmanager.Util.AsyncTaskBuilder;
+import com.god.backgroundmanager.Permission.PermissionHandler;
+import com.god.backgroundmanager.Tasking.TaskingHandler;
 import com.god.backgroundmanager.Util.DialogUtils;
 import com.god.backgroundmanager.databinding.ActivityMainBinding;
 import com.google.android.material.navigation.NavigationView;
@@ -49,35 +41,50 @@ import java.util.stream.Stream;
 public class MainActivity extends AppCompatActivity {
     private AppManagerFacade appManagerFacade;
     private ListAppAdapter crrListListAppAdapter;
-    private List<AppInfo> listApp;
     private GroupAppType selectedGroupAppType = GroupAppType.ALL;
     private OrderAppType selectedOrderAppType = OrderAppType.NAME;
     private SortAppType selectedSortAppType = SortAppType.A_TO_Z;
-    private static final int PERMISSION_QUERY_ALL_PACKAGES_CODE = 69;
     private MenuItem prevSelectGroupTypeItem;
     private MenuItem prevSelectOrderTypeItem;
     private MenuItem prevSelectSortTypeItem;
     private TextView appTitleLabel;
-    private LinearLayout searchBar;
     private LinearLayout selectOptionBar;
     private Menu optionsMenu;
     private boolean isOpenSearchBar = false;
     private DrawerLayout mainDrawer;
-    private Stack<BackStackState> backStack = new Stack<>();
+    private final Stack<BackStackState> backStack = new Stack<>();
+    private TaskingHandler taskingHandler;
+    private PermissionHandler permissionHandler;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getPermissions();
-        appManagerFacade = AppManagerFacade.GetInstance(this);
-        appManagerFacade.getRootPermission();
+        initPermission();
+        initAppManagerFacade();
+        initTaskingHandler();
         ActivityMainBinding binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
         initLayout(binding);
         initProperty();
         initListAppRecycleView();
         initSearchEvent();
-        execTaskGetAllInstalledApp();
+        taskingHandler.execTaskGetAllInstalledApp();
+    }
+
+    private void initAppManagerFacade() {
+        appManagerFacade = AppManagerFacade.GetInstance(this);
+        appManagerFacade.getRootPermission();
+    }
+
+    private void initPermission() {
+        permissionHandler = new PermissionHandler(this);
+        permissionHandler.getPermissions();
+    }
+
+    private void initTaskingHandler() {
+        taskingHandler = new TaskingHandler(this);
+        taskingHandler.setCallbackSetListAppToRecycleView(
+                this::setListAppToRecycleView);
     }
 
     private void initLayout(ActivityMainBinding binding) {
@@ -92,31 +99,18 @@ public class MainActivity extends AppCompatActivity {
             int id = item.getItemId();
             switch (id){
                 case R.id.refesh_list_app:{
-                    execTaskGetAllInstalledApp();
+                    taskingHandler.execTaskGetAllInstalledApp();
                 }
             }
             mainDrawer.closeDrawer(GravityCompat.START);
             return true;
         });
     }
-
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
-        if (requestCode == PERMISSION_QUERY_ALL_PACKAGES_CODE) {
-            if (grantResults.length < 1
-                    || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
-                DialogUtils.showAlertDialog(this,
-                        "Permission require warning",
-                        "You should provide permission to get full power",
-                        (dialog, which) -> getQueryAllPackagePermission(),
-                        (dialog, which) -> {
-                        }
-                );
-            }
-        }
+        permissionHandler.onRequestPermissionsResult(requestCode,permissions,grantResults);
     }
 
     @Override
@@ -133,17 +127,17 @@ public class MainActivity extends AppCompatActivity {
                                         "Force stopping " + selectedAppInfo.packageName,
                                         Toast.LENGTH_SHORT).show();
                                 appManagerFacade.forceStopApp(selectedAppInfo.packageName);
-                            },
-                            (dialog, which) -> {
                             }
                     );
                     return true;
                 case R.id.freeze:
+                    //TODO: make freeze app
                     return true;
                 case R.id.turn_off_notification:
+                    //TODO: turn off notification
                     return true;
                 case R.id.uninstall:
-                    execTaskUninstallApp(selectedAppInfo);
+                    taskingHandler.execTaskUninstallApp(selectedAppInfo);
                     return true;
                 case R.id.open_in_setting:
                     appManagerFacade.openAppSetting(selectedAppInfo.packageName);
@@ -197,24 +191,19 @@ public class MainActivity extends AppCompatActivity {
         isHaveToUpdateListApp = isHaveToUpdateListApp || handleMenuSort(item, id);
         if (isHaveToUpdateListApp) {
             item.setChecked(true);
+            taskingHandler.handleTaskSetListAppToRecycleView();
         } else {
-            handleMenuOther(item, id);
+            handleMenuOther(id);
         }
-        handleTaskSetListAppToRecycleView();
         return super.onOptionsItemSelected(item);
     }
 
     private void initProperty() {
         appTitleLabel = findViewById(R.id.app_name_title);
-        searchBar = findViewById(R.id.search_bar);
         selectOptionBar = findViewById(R.id.select_options_bar);
     }
 
-    private void handleMenuOther(MenuItem item, int id) {
-        BackStackState backStackState = null;
-        if (!backStack.isEmpty()) {
-            backStackState = backStack.peek();
-        }
+    private void handleMenuOther(int id) {
         switch (id) {
             case R.id.open_search_bar:
                 handleOpenSearchBar();
@@ -321,168 +310,20 @@ public class MainActivity extends AppCompatActivity {
         return isHaveToUpdateListApp;
     }
 
-    private void getPermissions() {
-        getQueryAllPackagePermission();
-        getManagerNotificationPermission();
-    }
 
-    private void getManagerNotificationPermission() {
-        if (checkSelfPermission(Manifest.permission.ACCESS_NOTIFICATION_POLICY)
-                == PackageManager.PERMISSION_DENIED) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                requestPermissions(new String[]{android.Manifest.permission.ACCESS_NOTIFICATION_POLICY}, 1);
-            }
-        }
-    }
-
-    private void getQueryAllPackagePermission() {
-        if (checkSelfPermission(Manifest.permission.QUERY_ALL_PACKAGES)
-                != PackageManager.PERMISSION_GRANTED) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                requestPermissions(new String[]{Manifest.permission.QUERY_ALL_PACKAGES},
-                        PERMISSION_QUERY_ALL_PACKAGES_CODE);
-            }
-        }
-    }
 
     private void initListAppRecycleView() {
         RecyclerView listAppRecycleView = findViewById(R.id.list_app);
         LinearLayoutManager layoutManager = new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false);
 
         listAppRecycleView.setLayoutManager(layoutManager);
-        listAppRecycleView.setHasFixedSize(true);
-        listAppRecycleView.setScrollbarFadingEnabled(false);
-        listApp = new ArrayList<>();
-        crrListListAppAdapter = new ListAppAdapter(listApp);
+        crrListListAppAdapter = new ListAppAdapter(new ArrayList<>());
         crrListListAppAdapter.setOnTouchEvent((listServiceLayout,
                                                appInfo)
-                -> execTaskHandleGetListService(listServiceLayout, appInfo.packageName));
+                ->taskingHandler.execTaskHandleGetListService(listServiceLayout, appInfo.packageName));
         listAppRecycleView.setAdapter(crrListListAppAdapter);
         registerForContextMenu(listAppRecycleView);
-    }
-
-    private void execTaskHandleGetListService(
-            LinearLayout listServiceLayout,
-            String crrPackageName
-    ) {
-        if (listServiceLayout != null) {
-            AsyncTaskBuilder<String, Void, Void> taskHandleGetListService = new AsyncTaskBuilder<>();
-            taskHandleGetListService.setDoInBackgroundFunc(packageName -> {
-                ActivityInfo[] listService = appManagerFacade
-                        .getServices((String) packageName[0]);
-                if (listService != null) {
-                    Handler handler = new Handler(Looper.getMainLooper());
-                    handler.post(() -> {
-                        listServiceLayout.removeAllViews();
-
-                        for (ActivityInfo crrService : listService) {
-                            CheckBox crrServiceCheckBox = new CheckBox(this);
-                            crrServiceCheckBox.setText(crrService.processName);
-                            crrServiceCheckBox.setChecked(crrService.enabled);
-                            crrServiceCheckBox.setOnCheckedChangeListener((v, isChecked) -> {
-
-                            });
-                            listServiceLayout.addView(crrServiceCheckBox);
-                        }
-                    });
-                }
-                return null;
-            });
-            taskHandleGetListService.execute(crrPackageName);
-        }
-    }
-
-    private void handleTaskSetListAppToRecycleView() {
-        AsyncTaskBuilder<Void, Void, Void> taskSetListAppToRecycleView = new AsyncTaskBuilder<>();
-        taskSetListAppToRecycleView.setDoInBackgroundFunc(an -> {
-            Handler handler = new Handler(Looper.getMainLooper());
-            handler.post(() -> {
-                setListAppToRecycleView(listApp);
-            });
-            return null;
-        });
-        taskSetListAppToRecycleView.execute();
-    }
-
-    private void execTaskForSearchApp(String queryText) {
-        AsyncTaskBuilder<Void, Void, Void> taskSearchApp = new AsyncTaskBuilder<>();
-        taskSearchApp.setDoInBackgroundFunc((val) -> {
-            Handler handler = new Handler(Looper.getMainLooper());
-            handler.post(() -> {
-                List<AppInfo> newListApp = new ArrayList<>();
-                if (!queryText.isEmpty()) {
-                    newListApp = listApp.stream().filter(appInfo -> appInfo
-                                    .packageName.contains(queryText) || appInfo.appName.toLowerCase()
-                                    .contains(queryText))
-                            .collect(Collectors.toList());
-                } else {
-                    newListApp = listApp;
-                }
-                setListAppToRecycleView(newListApp);
-            });
-            return null;
-        });
-        taskSearchApp.execute();
-    }
-
-    private void execTaskUninstallApp(AppInfo appInfo) {
-        AsyncTaskBuilder<Void, Void, Boolean> taskUninstallApp = new AsyncTaskBuilder<>();
-        ProgressDialog progressDialog = new ProgressDialog(this);
-        taskUninstallApp.setOnPreExecuteFunc(() -> {
-            Handler handler = new Handler(Looper.getMainLooper());
-            handler.post(() -> {
-                progressDialog.setMessage("Uninstalling...");
-                progressDialog.setCancelable(false);
-                progressDialog.show();
-            });
-        });
-        taskUninstallApp.setDoInBackgroundFunc(ts -> appManagerFacade.uninstallApp(appInfo));
-        taskUninstallApp.setOnPostExecuteFunc(
-                result -> {
-                    Handler handler = new Handler(Looper.getMainLooper());
-                    handler.post(() -> {
-                        if (progressDialog.isShowing()) {
-                            progressDialog.dismiss();
-                        }
-                        Toast.makeText(this,
-                                (boolean) result ? "Uninstall success" : "Uninstall failed",
-                                Toast.LENGTH_SHORT).show();
-                    });
-                }
-        );
-
-        taskUninstallApp.execute();
-    }
-
-    private void execTaskGetAllInstalledApp() {
-        AsyncTaskBuilder<Void, Void, Void> taskGetAllInstalledApp = new AsyncTaskBuilder<>();
-        ProgressDialog progressDialog = new ProgressDialog(this);
-
-        taskGetAllInstalledApp.setDoInBackgroundFunc(ts -> {
-            listApp = appManagerFacade.GetAllInstalledApp();
-            Handler handler = new Handler(Looper.getMainLooper());
-            handler.post(() -> setListAppToRecycleView(listApp));
-            return null;
-        });
-        taskGetAllInstalledApp.setOnPreExecuteFunc(() -> {
-            Handler handler = new Handler(Looper.getMainLooper());
-            handler.post(() -> {
-                progressDialog.setMessage("Loading...");
-                progressDialog.setCancelable(false);
-                progressDialog.show();
-            });
-        });
-        taskGetAllInstalledApp.setOnPostExecuteFunc(
-                result -> {
-                    Handler handler = new Handler(Looper.getMainLooper());
-                    handler.post(() -> {
-                        if (progressDialog.isShowing()) {
-                            progressDialog.dismiss();
-                        }
-                    });
-                }
-        );
-        taskGetAllInstalledApp.execute();
+        listAppRecycleView.setVerticalScrollBarEnabled(true);
     }
 
     private void setListAppToRecycleView(List<AppInfo> crrListApp) {
@@ -538,7 +379,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initSearchEvent() {
-        ((ImageButton) findViewById(R.id.close_search_bar_btn)).setOnClickListener((v) -> {
+        (findViewById(R.id.close_search_bar_btn)).setOnClickListener((v) -> {
             setOpenSearchBar(false);
             appTitleLabel.setVisibility(View.VISIBLE);
         });
@@ -551,7 +392,7 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public boolean onQueryTextChange(String newText) {
-                execTaskForSearchApp(newText);
+                taskingHandler.execTaskForSearchApp(newText);
                 return false;
             }
         });

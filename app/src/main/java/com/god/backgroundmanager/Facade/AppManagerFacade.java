@@ -52,7 +52,9 @@ public class AppManagerFacade {
             String appName = applicationInfo.loadLabel(packageManager).toString();
             String packageName = applicationInfo.packageName;
             AppInfo appInfo = new AppInfo(appIcon,
-                    appName, packageName,(applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0);
+                    appName, packageName,
+                    (applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0,
+                    (applicationInfo.flags & ApplicationInfo.FLAG_STOPPED) == 0);
             appList.add(appInfo);
         }
         return appList;
